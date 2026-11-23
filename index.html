@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Serap research notes</title>
+<meta name="description" content="Intraday and slow trading backtests, tested against luck, costs and out-of-sample data.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet">
+<style>
+/* VOICE work: a research note read by quants
+   IDEA a referee report on my own backtest, each section answers one objection
+   PICTURE the distribution of the best Sharpe found by pure luck, my result placed on it
+   COLOUR graphite ground, warm white ink, vermilion for chance, steel blue for strategies
+   TYPE Newsreader titles and figures, IBM Plex Sans text
+   LAYOUT title across the top, chart two thirds beside a ruled column of figures; phone: title, chart, figures, controls */
+:root{color-scheme:dark;--bg:#111315;--bg2:#171a1d;--ink:#ecebe6;--mute:#a09f99;--faint:#6b6d6a;--rule:#2a2e32;--luck:#ff6a45;--edge:#9cc3dd;--serif:"Newsreader",Georgia,serif;--sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+:root[lang=en] .fr,:root[lang=fr] .en{display:none}
+*{box-sizing:border-box;min-width:0}
+html{scroll-padding-top:68px}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--sans);overflow-x:clip;-webkit-font-smoothing:antialiased}
+a{color:var(--ink);text-decoration-color:var(--faint);text-underline-offset:3px}
+a:hover{text-decoration-color:var(--ink)}
+:focus-visible{outline:2px solid var(--edge);outline-offset:2px}
+@media(prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;height:60px;padding:0 max(5vw,16px);background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-bottom:1px solid var(--rule)}
+.brand{flex:none;font:500 21px/1 var(--serif);text-decoration:none}
+.nav{display:flex;flex:1;overflow-x:auto;scrollbar-width:none}
+.nav::-webkit-scrollbar{display:none}
+.nav a{flex:none;padding:11px 9px;font-size:14px;color:var(--mute);text-decoration:none}
+.nav a:hover{color:var(--ink)}
+.lang{flex:none;display:flex;border:1px solid var(--rule);border-radius:8px;overflow:hidden}
+.lang button{min-width:44px;height:40px;border:0;background:none;color:var(--mute);font:500 13px var(--sans);cursor:pointer}
+.lang button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+.band{padding:clamp(40px,5vw,76px) max(5vw,16px);border-bottom:1px solid var(--rule)}
+.wrap{max-width:1240px;margin:0 auto}
+h1,h2,h3{font-family:var(--serif);font-weight:500;letter-spacing:-.015em;line-height:1.05;text-wrap:balance;margin:0}
+h1{font-size:clamp(34px,5.4vw,60px);max-width:17ch}
+h2{font-size:clamp(28px,3.4vw,42px);max-width:26ch}
+h3{font-size:21px;line-height:1.2;letter-spacing:0}
+p{margin:12px 0 0;max-width:68ch}
+.lede{font-size:18px;color:var(--mute);max-width:62ch;margin-top:18px}
+.cap{font-size:14px;color:var(--mute);max-width:84ch}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.fig{position:relative;min-height:340px}
+.fig>svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+svg text{font:13px var(--sans);fill:var(--mute);paint-order:stroke;stroke:var(--bg);stroke-width:4px}
+svg text.k{fill:var(--ink);font-weight:500}
+.hgrid{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:clamp(20px,3vw,44px);margin-top:34px}
+.hgrid .fig{min-height:400px}
+.read{display:grid;align-content:start;border-top:1px solid var(--ink)}
+.read>div{padding:14px 0 16px;border-bottom:1px solid var(--rule)}
+.big{display:block;font:500 clamp(40px,4.6vw,62px)/1 var(--serif);font-variant-numeric:tabular-nums}
+.big.luck{color:var(--luck)}
+.read small,.facts>div>span{display:block;font-size:14px;color:var(--mute);margin-top:6px}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.duo b{font:500 26px var(--serif);font-variant-numeric:tabular-nums}
+.ctrl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 28px;margin-top:22px}
+.ctrl label{display:block;font-size:14px;color:var(--mute)}
+.ctrl label span{display:flex;justify-content:space-between;gap:8px}
+.ctrl output{color:var(--ink);font-variant-numeric:tabular-nums}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-top:14px}
+input[type=range]{-webkit-appearance:none;appearance:none;display:block;width:100%;height:44px;margin:0;background:none;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:var(--rule)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-9px;border-radius:50%;border:3px solid var(--bg);background:var(--ink)}
+input[type=range]::-moz-range-track{height:4px;border-radius:2px;background:var(--rule)}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;border:3px solid var(--bg);background:var(--ink)}
+.b{min-height:44px;padding:0 16px;border:1px solid var(--rule);border-radius:8px;background:var(--bg2);color:var(--ink);font:500 14px var(--sans);cursor:pointer}
+.b:hover{border-color:var(--mute)}
+.b:active{transform:translateY(1px)}
+.facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-top:30px;padding-top:16px;border-top:1px solid var(--rule)}
+.facts b{display:block;font:500 26px/1.1 var(--serif);font-variant-numeric:tabular-nums}
+.two{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:clamp(24px,4vw,60px);margin-top:30px;align-items:start}
+.lab{display:block;font-size:14px;color:var(--mute);margin-bottom:10px}
+.wf,.db>div{display:grid;grid-template-columns:minmax(7em,auto) minmax(0,1fr) 4.2em;gap:2px 12px;align-items:center;font-size:14px}
+.trk{position:relative;height:30px}
+.trk i{position:absolute;top:6px;height:18px;border-radius:2px}
+.wf .v,.db .v{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.db>div{grid-template-columns:minmax(0,1.15fr) minmax(0,2fr) 4.2em}
+.db .trk{background:linear-gradient(to right,transparent calc(var(--z) - .5px),var(--faint) 0 calc(var(--z) + .5px),transparent 0)}
+.db .ln{position:absolute;top:14px;height:2px;background:var(--faint)}
+.db .p{position:absolute;top:9px;width:12px;height:12px;margin-left:-6px;border-radius:50%}
+.db .p.s{border:2px solid var(--mute);background:var(--bg)}
+.db .p.r{background:var(--edge)}
+.db .nm{color:var(--mute)}
+.db .hi .nm,.db .hi .v{color:var(--ink);font-weight:500}
+.ax{position:relative;height:20px;font-size:13px;color:var(--faint)}
+.ax span{position:absolute;transform:translateX(-50%);white-space:nowrap}
+.ax span:first-child{transform:none}
+.ax span:last-child{transform:translateX(-100%)}
+.key{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:14px;color:var(--mute);margin-top:12px}
+.key i{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+.key i.ln{width:18px;height:3px;border-radius:0;vertical-align:3px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th{font-weight:500;color:var(--mute);text-align:left;font-size:14px}
+th,td{padding:9px 10px;border-bottom:1px solid var(--rule)}
+td.c,th.c{text-align:center;padding-inline:4px}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.hi td{background:color-mix(in srgb,var(--edge) 12%,transparent)}
+.dot{display:inline-block;width:13px;height:13px;border-radius:50%;border:1.5px solid var(--faint);vertical-align:-1px}
+.dot.on{background:var(--ink);border-color:var(--ink)}
+.tests{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin:26px 0 22px;padding:0;list-style:none}
+.tests li{font-size:14px;color:var(--mute);border-top:1px solid var(--ink);padding-top:10px}
+.tests b{display:block;font:500 20px var(--serif);color:var(--ink)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(8.5em,1fr));gap:14px;margin-top:22px}
+.stats b{display:block;font:500 26px/1.1 var(--serif);font-variant-numeric:tabular-nums}
+.stats>div>span{font-size:14px;color:var(--mute)}
+.yrs{display:grid;grid-template-columns:repeat(11,minmax(0,1fr));gap:4px;margin-top:8px;text-align:center;font-size:13px;font-variant-numeric:tabular-nums}
+.yb{position:relative;height:110px;border-bottom:1px solid transparent;background:linear-gradient(var(--faint),var(--faint)) center/100% 1px no-repeat}
+.yb i{position:absolute;left:18%;width:64%;background:var(--edge);border-radius:2px}
+.yb i.neg{background:var(--luck)}
+.yy{color:var(--faint)}
+.fl{border-top:1px solid var(--ink);margin-top:28px}
+.fl>div{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 40px;padding:16px 0;border-bottom:1px solid var(--rule)}
+.fl b{font-weight:500}
+.fl span{color:var(--mute)}
+.lim{margin-top:28px;border-top:1px solid var(--ink)}
+.lim>div{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr) minmax(0,1.2fr);gap:8px 32px;padding:14px 0;border-bottom:1px solid var(--rule);font-size:15px}
+.lim .hd{color:var(--mute);font-size:14px}
+.lim b{font-weight:500}
+.lim .rest{color:var(--mute)}
+.ml{display:none}
+.live{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 48px;margin-top:28px}
+.live h3{margin-bottom:6px}
+.cells{display:grid;grid-template-columns:repeat(14,minmax(0,1fr));gap:3px;margin-top:14px}
+.cells i{height:22px;border:1px solid var(--rule);border-radius:2px}
+.cells i.on{background:var(--edge);border-color:var(--edge)}
+.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px 48px;margin-top:28px}
+.three>div{border-top:1px solid var(--ink);padding-top:14px}
+.mini{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.mini b{display:block;font:500 24px/1.1 var(--serif);font-variant-numeric:tabular-nums}
+.mini>div>span{font-size:14px;color:var(--mute)}
+.cert{list-style:none;margin:12px 0 0;padding:0}
+.cert li{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--rule);font-size:15px}
+.cert .dt{flex:none;color:var(--mute);white-space:nowrap}
+details{margin-top:18px}
+summary{cursor:pointer;color:var(--mute);font-size:14px;min-height:44px;display:flex;align-items:center}
+footer{padding:36px max(5vw,16px) 56px;font-size:14px;color:var(--mute)}
+footer ol{padding-left:1.2em;margin:12px 0 0;max-width:90ch}
+footer li{margin-top:6px}
+@media(max-width:860px){.hgrid,.two,.live,.three{grid-template-columns:minmax(0,1fr)}.read{grid-template-columns:repeat(3,minmax(0,1fr));gap:0 14px}.read>.duo{grid-column:1/-1}.tests{grid-template-columns:repeat(auto-fit,minmax(9.5em,1fr))}}
+@media(max-width:600px){.hgrid .fig{min-height:300px}.fig{min-height:290px}.ctrl{grid-template-columns:minmax(0,1fr)}.facts{grid-template-columns:1fr 1fr}.big{font-size:34px}.read{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.read>div:first-child{grid-column:1/-1}.fl>div{grid-template-columns:minmax(0,1fr)}.lim>.hd{display:none}.lim>div{grid-template-columns:minmax(0,1fr);gap:4px}.ml{display:block;font-size:13px;color:var(--faint)}.wf{grid-template-columns:6.5em minmax(0,1fr) 3.6em}.db>div{grid-template-columns:minmax(0,1fr) 3.6em;row-gap:0}.db .trk,.db .ax{grid-column:1/-1;grid-row:2}table{font-size:13px}th,td{padding:7px 4px}}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="#luck">serap</a>
+  <nav class="nav" aria-label="Sections">
+    <a href="#luck"><span class="en">Luck</span><span class="fr">Chance</span></a>
+    <a href="#costs"><span class="en">Costs</span><span class="fr">Coûts</span></a>
+    <a href="#tests">Tests</a>
+    <a href="#survivor"><span class="en">Survivor</span><span class="fr">Survivant</span></a>
+    <a href="#oos"><span class="en">Out of sample</span><span class="fr">Hors échantillon</span></a>
+    <a href="#failed"><span class="en">Failures</span><span class="fr">Échecs</span></a>
+    <a href="#limits"><span class="en">Limits</span><span class="fr">Limites</span></a>
+    <a href="#about"><span class="en">About</span><span class="fr">À propos</span></a>
+  </nav>
+  <div class="lang" role="group" aria-label="Language">
+    <button type="button" id="lEN" aria-pressed="true">EN</button>
+    <button type="button" id="lFR" aria-pressed="false">FR</button>
+  </div>
+</header>
+
+<main>
+<section class="band" id="luck">
+ <div class="wrap">
+  <h1><span class="en">My best backtest is indistinguishable from luck.</span><span class="fr">Mon meilleur backtest ne se distingue pas de la chance.</span></h1>
+  <p class="lede"><span class="en">“Your backtest looks great. Why don’t you trust it?” Sixteen intraday strategies, 2,719 sessions, real retail costs. Here is the answer, with the numbers.</span><span class="fr">«&#8239;Ton backtest est super. Pourquoi tu ne lui fais pas confiance&#8239;?&#8239;» Seize stratégies intraday, 2&#8239;719 séances, vrais coûts de particulier. Voici la réponse, chiffres à l’appui.</span></p>
+  <div class="hgrid">
+   <div>
+    <div class="fig"><svg id="sN" role="img" aria-label="Distribution of the best Sharpe ratio among strategies with no edge, with the observed result marked"></svg></div>
+    <div class="key">
+     <span><i style="background:var(--luck)"></i><span class="en">best of N strategies with no edge</span><span class="fr">meilleure de N stratégies sans avantage</span></span>
+     <span><i class="ln" style="background:var(--faint)"></i><span class="en">a single strategy with no edge</span><span class="fr">une seule stratégie sans avantage</span></span>
+     <span><i class="ln" style="background:var(--ink)"></i><span class="en">my best book</span><span class="fr">mon meilleur livre</span></span>
+    </div>
+   </div>
+   <aside class="read" aria-live="polite">
+    <div><span class="big luck num" id="rP">47%</span><small><span class="en">of searches with zero edge find a “best” strategy at least this good</span><span class="fr">des recherches sans aucun avantage trouvent une «&#8239;meilleure&#8239;» stratégie au moins aussi bonne</span></small></div>
+    <div><span class="big num" id="rE">0.55</span><small><span class="en">expected best Sharpe from luck alone</span><span class="fr">Sharpe attendu du meilleur, par pure chance</span></small></div>
+    <div><span class="big num" id="rD">0.48</span><small><span class="en">deflated Sharpe ratio; 0.95 is needed to call it real</span><span class="fr">Sharpe déflaté&#8239;; il faut 0,95 pour le dire réel</span></small></div>
+    <div class="duo">
+     <div><b id="rNv">56%</b><small><span class="en">pure-noise winners passing a naive 5% test</span><span class="fr">gagnants du hasard qui passent un test naïf à 5&#8239;%</span></small></div>
+     <div><b id="rDf">0.5%</b><small><span class="en">passing once deflated</span><span class="fr">qui passent une fois déflatés</span></small></div>
+    </div>
+   </aside>
+  </div>
+  <div class="ctrl">
+   <label for="iN"><span><span class="en">Strategies tried</span><span class="fr">Stratégies essayées</span><output id="oN" for="iN">16</output></span><input type="range" id="iN" min="1" max="100" step="1" value="16"></label>
+   <label for="iT"><span><span class="en">Years of data</span><span class="fr">Années de données</span><output id="oT" for="iT">10.8</output></span><input type="range" id="iT" min="1" max="30" step="0.01" value="10.79"></label>
+   <label for="iS"><span><span class="en">Best Sharpe found</span><span class="fr">Meilleur Sharpe trouvé</span><output id="oS" for="iS">0.54</output></span><input type="range" id="iS" min="0" max="2" step="0.0005" value="0.5365"></label>
+  </div>
+  <div class="row">
+   <button type="button" class="b" id="bReset"><span class="en">Back to my backtest</span><span class="fr">Revenir à mon backtest</span></button>
+   <button type="button" class="b" id="bRun"><span class="en">Re-run 4,000 simulated searches</span><span class="fr">Relancer 4&#8239;000 recherches simulées</span></button>
+   <span class="cap" id="rSim" style="font-variant-numeric:tabular-nums"></span>
+  </div>
+  <p class="cap"><span class="en">Model: N strategies whose true Sharpe is zero; each estimate carries an error of about 1/√years; returns assumed normal, so fat tails would make it worse. Triangle on the axis: the expected maximum (Bailey &amp; López de Prado, 2014). Bars: the simulation, which checks the formula. N = 16 is a lower bound: other test batteries ran before this one.</span><span class="fr">Modèle&#8239;: N stratégies dont le vrai Sharpe est nul&#8239;; chaque estimation a une erreur d’environ 1/√années&#8239;; rendements supposés normaux, donc des queues épaisses aggraveraient le résultat. Triangle sur l’axe&#8239;: le maximum attendu (Bailey et López de Prado, 2014). Barres&#8239;: la simulation, qui vérifie la formule. N = 16 est un minimum&#8239;: d’autres batteries de tests ont tourné avant celle-ci.</span></p>
+  <div class="facts">
+   <div><b>16</b><span><span class="en">intraday books on SPY, QQQ, IWM</span><span class="fr">livres intraday sur SPY, QQQ, IWM</span></span></div>
+   <div><b class="num"><span class="en">2,719</span><span class="fr">2&#8239;719</span></b><span><span class="en">1-minute sessions, 4 Jan 2016 to 18 Nov 2026</span><span class="fr">séances en barres 1 minute, du 4 janv. 2016 au 18 nov. 2026</span></span></div>
+   <div><b class="num"><span class="en">$2,320</span><span class="fr">2&#8239;320 $</span></b><span><span class="en">fixed capital, gains not reinvested</span><span class="fr">capital fixe, gains non réinvestis</span></span></div>
+   <div><b>4</b><span><span class="en">cost scenarios; the backtest runs the live bot’s code</span><span class="fr">scénarios de coûts&#8239;; le backtest fait tourner le code du bot en direct</span></span></div>
+  </div>
+ </div>
+</section>
+
+<section class="band" id="costs">
+ <div class="wrap">
+  <h2><span class="en">The published rule made +13%/yr at the paper’s costs. At mine: +0.2%.</span><span class="fr">La règle publiée gagnait +13&#8239;%/an aux coûts de l’article. Aux miens&#8239;: +0,2&#8239;%.</span></h2>
+  <div class="two">
+   <div>
+    <span class="lab"><span class="en">Average trade of the base rule, in dollars (2,488 trades)</span><span class="fr">Trade moyen de la règle de base, en dollars (2&#8239;488 trades)</span></span>
+    <div class="wf" id="wf"></div>
+    <p class="cap"><span class="en">Base rule: the “noise area” intraday momentum strategy (Zarattini, Aziz &amp; Barbon, 2024) on SPY. Their costs: $0.0035 a share, $0.001 slippage. Mine: IBKR $0.35 minimum per order, regulatory fees on sales, $0.01 per share and side of slippage, on a $2,320 account. At that size the order minimum is almost two thirds of the bill. Figures rounded; net = $45.03 over 2,488 trades.</span><span class="fr">Règle de base&#8239;: la stratégie de momentum intraday «&#8239;noise area&#8239;» (Zarattini, Aziz et Barbon, 2024) sur SPY. Leurs coûts&#8239;: 0,0035 $ par action, 0,001 $ de glissement. Les miens&#8239;: IBKR 0,35 $ minimum par ordre, taxes sur les ventes, 0,01 $ de glissement par action et par côté, sur un compte de 2&#8239;320 $. À cette taille, le minimum par ordre fait presque les deux tiers de la facture. Chiffres arrondis&#8239;; net = 45,03 $ sur 2&#8239;488 trades.</span></p>
+   </div>
+   <div>
+    <span class="lab"><span class="en">Gain per year, % of capital: paper’s costs (ring) vs real costs (dot)</span><span class="fr">Gain par an, en % du capital&#8239;: coûts de l’article (cercle) contre coûts réels (point)</span></span>
+    <div class="db" id="db"></div>
+    <p class="cap"><span class="en">SPY unless noted. Books that lose their whole capital floor near −9%/yr (−97% over the period).</span><span class="fr">SPY sauf mention. Les livres qui perdent tout leur capital plafonnent vers −9&#8239;%/an (−97&#8239;% sur la période).</span></p>
+   </div>
+  </div>
+ </div>
+</section>
+
+<section class="band" id="tests">
+ <div class="wrap">
+  <h2><span class="en">Five tests, written before the first run. One book of sixteen passes.</span><span class="fr">Cinq tests, écrits avant le premier calcul. Un livre sur seize passe.</span></h2>
+  <ol class="tests">
+   <li><b>T1</b><span class="en">net gain above zero</span><span class="fr">gain net positif</span></li>
+   <li><b>T2</b><span class="en">Sharpe of at least 0.5</span><span class="fr">Sharpe d’au moins 0,5</span></li>
+   <li><b>T3</b><span class="en">positive in both halves (split 11 Jun 2021)</span><span class="fr">positif dans les deux moitiés (coupure au 11 juin 2021)</span></li>
+   <li><b>T4</b><span class="en">at least 60% of calendar years positive</span><span class="fr">au moins 60&#8239;% d’années civiles positives</span></li>
+   <li><b>T5</b><span class="en">still positive with slippage ×3</span><span class="fr">encore positif avec un glissement ×3</span></li>
+  </ol>
+  <div class="scroll"><table id="mx"></table></div>
+  <p class="cap"><span class="en">5/5 kept, 4/5 on watch, fewer rejected. Each variant changes one setting of the base rule; 5 of its 8 variants end positive. That neighbourhood says more than the winner does.</span><span class="fr">5/5 retenu, 4/5 à surveiller, moins rejeté. Chaque variante change un seul réglage de la règle de base&#8239;; 5 de ses 8 variantes finissent positives. Ce voisinage en dit plus que le gagnant.</span></p>
+ </div>
+</section>
+
+<section class="band" id="survivor">
+ <div class="wrap">
+  <h2><span class="en">The survivor made +67% in 10.8 years. It lost money in 2025 and 2026.</span><span class="fr">Le survivant a fait +67&#8239;% en 10,8 ans. Il a perdu en 2025 et en 2026.</span></h2>
+  <div class="two">
+   <div>
+    <span class="lab"><span class="en">Noise band ×1.5 on SPY, net result per calendar year, % of capital</span><span class="fr">Zone de bruit ×1,5 sur SPY, résultat net par année civile, en % du capital</span></span>
+    <div class="yrs" id="yrs"></div>
+    <div class="stats">
+     <div><b>0.54</b><span>Sharpe</span></div>
+     <div><b>31%</b><span><span class="en">max drawdown</span><span class="fr">baisse max</span></span></div>
+     <div><b class="num"><span class="en">1,532</span><span class="fr">1&#8239;532</span></b><span>trades</span></div>
+     <div><b>8/11</b><span><span class="en">years positive</span><span class="fr">années positives</span></span></div>
+     <div><b class="num">+1.5%</b><span><span class="en">per year, slippage ×3</span><span class="fr">par an, glissement ×3</span></span></div>
+     <div><b class="num">+45 / +22%</b><span><span class="en">first / second half</span><span class="fr">1re / 2e moitié</span></span></div>
+    </div>
+   </div>
+   <div>
+    <span class="lab"><span class="en">Cumulative net P&amp;L in dollars, real costs, monthly</span><span class="fr">P&amp;L net cumulé en dollars, coûts réels, par mois</span></span>
+    <div class="fig"><svg id="sE" role="img" aria-label="Cumulative profit and loss of three books from 2016 to 2026"></svg></div>
+    <div class="key">
+     <span><i class="ln" style="background:var(--edge)"></i><span class="en">noise band ×1.5, SPY (5/5)</span><span class="fr">zone de bruit ×1,5, SPY (5/5)</span></span>
+     <span><i class="ln" style="background:var(--mute)"></i><span class="en">noise band, QQQ (4/5)</span><span class="fr">zone de bruit, QQQ (4/5)</span></span>
+     <span><i class="ln" style="background:var(--luck)"></i><span class="en">benchmark: buy SPY at the open, sell at the close</span><span class="fr">référence&#8239;: achat SPY à l’ouverture, vente à la clôture</span></span>
+    </div>
+   </div>
+  </div>
+  <p class="cap"><span class="en">2026 runs to 18 November. The QQQ book earned more but fails T5: with slippage ×3 it loses 6%/yr. The benchmark shows that holding SPY only during the session lost money over this period.</span><span class="fr">2026 s’arrête au 18 novembre. Le livre QQQ a gagné plus mais rate T5&#8239;: avec un glissement ×3, il perd 6&#8239;%/an. La référence montre que tenir SPY seulement pendant la séance a perdu de l’argent sur la période.</span></p>
+ </div>
+</section>
+
+<section class="band" id="oos">
+ <div class="wrap">
+  <h2><span class="en">Out of sample, 16 of 17 slow strategies got worse.</span><span class="fr">Hors échantillon, 16 stratégies lentes sur 17 ont fait moins bien.</span></h2>
+  <div class="two">
+   <div>
+    <div class="stats" style="margin-top:0">
+     <div><b>3/17</b><span><span class="en">kept: Sharpe ≥ 0.5 in both periods</span><span class="fr">retenues&#8239;: Sharpe ≥ 0,5 dans les deux périodes</span></span></div>
+     <div><b>+0.36</b><span><span class="en">rank correlation, study to test</span><span class="fr">corrélation de rang, étude vers test</span></span></div>
+     <div><b>0.46</b><span><span class="en">buy-and-hold SPY over the same test</span><span class="fr">SPY acheté-gardé sur le même test</span></span></div>
+     <div><b>0.76</b><span><span class="en">deflated Sharpe of the best (T5), below 0.95</span><span class="fr">Sharpe déflaté du meilleur (T5), sous 0,95</span></span></div>
+    </div>
+    <p class="cap"><span class="en">17 rules picked from the literature on ETFs and crypto, plus 5 benchmarks. Study Jan 2017 to Dec 2021, final test Jan 2022 to 17 Nov 2026, including the 2022 bear market. Net of costs, in excess of T-bills (BIL), long only, no leverage. The three survivors (T5, K1, K2) barely beat buying SPY. The tournament script computes its deflated Sharpe from the spread of the trials’ Sharpes, a different convention from the chart at the top.</span><span class="fr">17 règles tirées de la littérature, sur ETF et crypto, plus 5 références. Étude de janv. 2017 à déc. 2021, test final de janv. 2022 au 17 nov. 2026, marché baissier de 2022 compris. Net de coûts, en excès des bons du Trésor (BIL), achats seuls, sans levier. Les trois survivantes (T5, K1, K2) battent à peine SPY acheté-gardé. Le script du tournoi calcule son Sharpe déflaté à partir de la dispersion des Sharpe essayés, une autre convention que le graphique du haut.</span></p>
+   </div>
+   <div>
+    <div class="fig"><svg id="sS" role="img" aria-label="Scatter of study Sharpe against final-test Sharpe for 17 strategies and 5 benchmarks"></svg></div>
+    <div class="key">
+     <span><i style="background:var(--ink)"></i><span class="en">kept</span><span class="fr">retenue</span></span>
+     <span><i style="background:var(--edge)"></i><span class="en">rejected or on watch</span><span class="fr">rejetée ou à surveiller</span></span>
+     <span><i style="border:2px solid var(--luck)"></i><span class="en">benchmark</span><span class="fr">référence</span></span>
+    </div>
+   </div>
+  </div>
+  <details>
+   <summary><span class="en">All 22 rows</span><span class="fr">Les 22 lignes</span></summary>
+   <div class="scroll"><table id="tt"></table></div>
+  </details>
+ </div>
+</section>
+
+<section class="band" id="failed">
+ <div class="wrap">
+  <h2><span class="en">What failed</span><span class="fr">Ce qui a échoué</span></h2>
+  <div class="fl">
+   <div><b><span class="en">Last-half-hour momentum, after a published 2018 effect</span><span class="fr">Momentum de la dernière demi-heure, d’après un effet publié en 2018</span></b><span><span class="en">3 versions, all 0/5, about −8.5%/yr at real costs.</span><span class="fr">3 versions, toutes à 0/5, environ −8,5&#8239;%/an aux coûts réels.</span></span></div>
+   <div><b><span class="en">Trading the VWAP trend every 30 minutes</span><span class="fr">Suivre la tendance du VWAP toutes les 30 minutes</span></b><span><span class="en">Whole capital lost by 2018 on QQQ and by 2019 on SPY.</span><span class="fr">Tout le capital perdu dès 2018 sur QQQ et dès 2019 sur SPY.</span></span></div>
+   <div><b><span class="en">Checking the noise band every 15 minutes instead of 30</span><span class="fr">Contrôler la zone de bruit toutes les 15 minutes au lieu de 30</span></b><span><span class="en">More trades, more costs: −8.4%/yr against +0.2%.</span><span class="fr">Plus de trades, plus de coûts&#8239;: −8,4&#8239;%/an contre +0,2&#8239;%.</span></span></div>
+   <div><b><span class="en">The same noise band on small caps (IWM)</span><span class="fr">La même zone de bruit sur les petites capitalisations (IWM)</span></b><span><span class="en">−8.3%/yr, one positive year out of eleven.</span><span class="fr">−8,3&#8239;%/an, une seule année positive sur onze.</span></span></div>
+   <div><b><span class="en">Slow strategies out of sample</span><span class="fr">Stratégies lentes hors échantillon</span></b><span><span class="en">14 of 17 rejected or left on watch.</span><span class="fr">14 sur 17 rejetées ou laissées à surveiller.</span></span></div>
+   <div><b><span class="en">Separate re-test, Nov 2021 to Nov 2026, other cost model, against copies of its own trades with shuffled directions</span><span class="fr">Re-test séparé, nov. 2021 à nov. 2026, autre modèle de coûts, contre des copies de ses propres trades aux sens mélangés</span></b><span><span class="en">Noise band on SPY: −1.0 bp per trade, Holm-corrected p = 0.625, no evidence. The QQQ copy (raw p = 0.002) stays a lead, not a proof.</span><span class="fr">Zone de bruit sur SPY&#8239;: −1,0 pb par trade, p corrigé (Holm) = 0,625, aucune preuve. La copie sur QQQ (p brut = 0,002) reste une piste, pas une preuve.</span></span></div>
+  </div>
+ </div>
+</section>
+
+<section class="band" id="limits">
+ <div class="wrap">
+  <h2><span class="en">What these numbers cannot prove</span><span class="fr">Ce que ces chiffres ne prouvent pas</span></h2>
+  <div class="lim" id="lim"></div>
+ </div>
+</section>
+
+<section class="band" id="about">
+ <div class="wrap">
+  <h2><span class="en">How I work</span><span class="fr">Comment je travaille</span></h2>
+  <p class="lede"><span class="en">18, final year of high school, near Paris; aiming for quantitative trading. I decide the architecture, the strategies and the test rules. AI writes most of the code and I check it with tests.</span><span class="fr">18 ans, en terminale près de Paris&#8239;; objectif&#8239;: trading quantitatif. Je décide l’architecture, les stratégies et les règles de test. L’IA écrit la plus grande partie du code et je la vérifie par des tests.</span></p>
+  <div class="three">
+   <div>
+    <h3><span class="en">Organic TikTok launch</span><span class="fr">Lancement TikTok organique</span></h3>
+    <p class="cap"><span class="en">Jun to Jul 2026, for a brand kept anonymous. First 6 days: 1.1M views, 214,000 likes.</span><span class="fr">Juin à juillet 2026, pour une marque restée anonyme. 6 premiers jours&#8239;: 1,1 M de vues, 214&#8239;000 likes.</span></p>
+    <div class="mini">
+     <div><b>4M+</b><span><span class="en">views</span><span class="fr">vues</span></span></div>
+     <div><b>€0</b><span><span class="en">spent on ads</span><span class="fr">de publicité</span></span></div>
+     <div><b class="num"><span class="en">1,800</span><span class="fr">1&#8239;800</span></b><span><span class="en">sign-ups</span><span class="fr">inscriptions</span></span></div>
+     <div><b class="num">800–900</b><span><span class="en">purchases</span><span class="fr">achats</span></span></div>
+    </div>
+   </div>
+   <div>
+    <h3><span class="en">Multimodal AI, study project</span><span class="fr">IA multimodale, projet d’étude</span></h3>
+    <p class="cap"><span class="en">Jan to May 2026. 17 training videos turned into a knowledge base with Whisper, ffmpeg and the Claude API, plus a Binance market-analysis module from 5-minute to 4-hour bars.</span><span class="fr">Janv. à mai 2026. 17 vidéos de formation transformées en base de connaissances avec Whisper, ffmpeg et l’API Claude, plus un module d’analyse de marché Binance, de 5 minutes à 4 heures.</span></p>
+    <div class="mini">
+     <div><b>224</b><span><span class="en">concepts extracted</span><span class="fr">concepts extraits</span></span></div>
+     <div><b>36</b><span><span class="en">after consolidation</span><span class="fr">après consolidation</span></span></div>
+    </div>
+   </div>
+   <div>
+    <h3>Certifications</h3>
+    <ul class="cert">
+     <li><span>QuantInsti, Machine Learning for Trading, 94%</span><span class="dt"><span class="en">Nov 2026</span><span class="fr">nov. 2026</span></span></li>
+     <li><span>Albert School, Trading Floor Challenge</span><span class="dt"><span class="en">Nov 2026</span><span class="fr">nov. 2026</span></span></li>
+     <li><span>JPMorgan, Investment Banking simulation (Forage)</span><span class="dt"><span class="en">Jun 2025</span><span class="fr">juin 2025</span></span></li>
+    </ul>
+   </div>
+  </div>
+ </div>
+</section>
+</main>
+
+<footer>
+ <div class="wrap">
+  <p><span class="en">Every result on this page is a backtest. Nothing here is investment advice. Prices: consolidated 1-minute bars, not adjusted for dividends.</span><span class="fr">Tous les résultats de cette page sont des backtests. Rien ici n’est un conseil en investissement. Prix&#8239;: barres 1 minute consolidées, non ajustées des dividendes.</span></p>
+  <ol>
+   <li>Bailey, D. H. &amp; López de Prado, M. (2014). The Deflated Sharpe Ratio. <i>Journal of Portfolio Management</i>.</li>
+   <li>Zarattini, C., Aziz, A. &amp; Barbon, A. (2024). Beat the Market: An Effective Intraday Momentum Strategy for S&amp;P500 ETF (SPY). SSRN.</li>
+   <li>Gao, L., Han, Y., Li, S. Z. &amp; Zhou, G. (2018). Market Intraday Momentum. <i>Journal of Financial Economics</i>.</li>
+   <li>Faber, M. (2007). A Quantitative Approach to Tactical Asset Allocation. <i>Journal of Wealth Management</i>.</li>
+  </ol>
+ </div>
+</footer>
+
+<script>
+{
+const root=document.documentElement;
+let lang="en";
+try{const s=localStorage.getItem("lang");if(s==="fr"||s==="en")lang=s}catch(e){}
+const L=(en,fr)=>lang==="fr"?fr:en;
+const nf=(x,d=2)=>x.toLocaleString(lang==="fr"?"fr-FR":"en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+const pc=p=>(p<.01?nf(p*100,1):nf(p*100,0))+(lang==="fr"?" %":"%");
+const sg=(x,d=1)=>(x>0?"+":x<0?"−":"")+nf(Math.abs(x),d);
+const usd=x=>{const v=nf(Math.abs(Math.round(x)),0),s=x>0?"+":x<0?"−":"";return lang==="fr"?s+v+" $":s+"$"+v};
+
+const erf=x=>{const s=Math.sign(x),a=Math.abs(x),t=1/(1+.3275911*a);return s*(1-((((1.061405429*t-1.453152027)*t+1.421413741)*t-.284496736)*t+.254829592)*t*Math.exp(-a*a))};
+const Phi=z=>.5*(1+erf(z/Math.SQRT2));
+const phi=z=>Math.exp(-z*z/2)/Math.sqrt(2*Math.PI);
+const iPhi=p=>{const a=[-39.69683028665376,220.9460984245205,-275.9285104469687,138.357751867269,-30.66479806614716,2.506628277459239],b=[-54.47609879822406,161.5858368580409,-155.6989798598866,66.80131188771972,-13.28068155288572],c=[-.007784894002430293,-.3223964580411365,-2.400758277161838,-2.549732539343734,4.374664141464968,2.938163982698783],d=[.007784695709041462,.3224671290700398,2.445134137142996,3.754408661907416],lo=.02425;
+ if(p<lo||p>1-lo){const q=Math.sqrt(-2*Math.log(p<lo?p:1-p)),v=(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);return p<lo?v:-v}
+ const q=p-.5,r=q*q;return(((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1)};
+const G=.5772156649;
+const Ez=n=>n<2?0:(1-G)*iPhi(1-1/n)+G*iPhi(1-1/(n*Math.E));
+
+const st={n:16,t:10.79,s:.5365,seed:7,mz:[]};
+const M=4000;
+const simulate=()=>{let a=st.seed>>>0;const u=()=>{a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+ const out=new Float64Array(M);for(let m=0;m<M;m++){let mx=-Infinity;for(let i=0;i<st.n;i++){const z=Math.sqrt(-2*Math.log(u()||1e-12))*Math.cos(2*Math.PI*u());if(z>mx)mx=z}out[m]=mx}st.mz=out};
+
+const $=id=>document.getElementById(id);
+const sN=$("sN"),sE=$("sE"),sS=$("sS");
+
+const readouts=()=>{const s=1/Math.sqrt(st.t),ez=Ez(st.n),sr0=ez*s;
+ $("rP").textContent=pc(1-Phi(st.s/s)**st.n);
+ $("rE").textContent=nf(sr0);
+ $("rD").textContent=nf(Phi((st.s-sr0)/s));
+ $("rNv").textContent=pc(1-.95**st.n);
+ $("rDf").textContent=pc(1-Phi(ez+1.645)**st.n);
+ let mean=0;for(const z of st.mz)mean+=z;mean=mean/st.mz.length*s;
+ $("rSim").textContent=L(`Simulated mean of the best: ${nf(mean)} · closed-form approximation: ${nf(sr0)}`,`Moyenne simulée du meilleur : ${nf(mean)} · approximation analytique : ${nf(sr0)}`);
+ $("oN").textContent=st.n;$("oT").textContent=nf(st.t,1);$("oS").textContent=nf(st.s)};
+
+const drawN=()=>{const W=sN.clientWidth,H=sN.clientHeight;if(!W||!H)return;
+ const m={l:8,r:8,t:30,b:44},s=1/Math.sqrt(st.t),sr0=Ez(st.n)*s;
+ const x0=-3.2*s,x1=Math.max(st.s+.8*s,sr0+3.4*s,3.2*s);
+ const fx=x=>m.l+(x-x0)/(x1-x0)*(W-m.l-m.r);
+ const f1=x=>phi(x/s)/s,fn=x=>{const z=x/s;return st.n*phi(z)*Phi(z)**(st.n-1)/s};
+ const K=50,bw=(x1-x0)/K,h=new Array(K).fill(0);
+ for(const z of st.mz){const k=Math.floor((z*s-x0)/bw);if(k>=0&&k<K)h[k]++}
+ const hd=h.map(c=>c/(st.mz.length*bw));
+ const xs=Array.from({length:181},(_,i)=>x0+(x1-x0)*i/180);
+ const ym=Math.max(...xs.map(fn),...xs.map(f1),...hd)*1.06;
+ const fy=y=>H-m.b-y/ym*(H-m.t-m.b),base=fy(0);
+ const path=(f,a)=>a.map((x,i)=>(i?"L":"M")+fx(x).toFixed(1)+","+fy(f(x)).toFixed(1)).join("");
+ const tail=xs.filter(x=>x>=st.s);
+ let g="";
+ hd.forEach((v,k)=>{if(v>0)g+=`<rect x="${(fx(x0+k*bw)+.5).toFixed(1)}" y="${fy(v).toFixed(1)}" width="${Math.max(1,fx(x0+bw)-fx(x0)-1).toFixed(1)}" height="${(base-fy(v)).toFixed(1)}" fill="var(--luck)" opacity=".2"/>`});
+ if(tail.length>1)g+=`<path d="M${fx(st.s).toFixed(1)},${base}L${fx(st.s).toFixed(1)},${fy(fn(st.s)).toFixed(1)}${path(fn,tail).replace("M","L")}L${fx(x1).toFixed(1)},${base}Z" fill="var(--luck)" opacity=".38"/>`;
+ g+=`<path d="${path(f1,xs)}" fill="none" stroke="var(--faint)" stroke-width="1.5"/>`;
+ g+=`<path d="${path(fn,xs)}" fill="none" stroke="var(--luck)" stroke-width="2.5"/>`;
+ g+=`<line x1="${m.l}" x2="${W-m.r}" y1="${base}" y2="${base}" stroke="var(--faint)"/>`;
+ const step=[.25,.5,1,2].find(v=>(x1-x0)/v<=(W<520?6:9))||2,dd=step<.5?2:step<1?1:0;
+ for(let v=Math.ceil(x0/step)*step;v<=x1+1e-9;v+=step){const x=fx(v);g+=`<line x1="${x}" x2="${x}" y1="${base}" y2="${base+5}" stroke="var(--faint)"/><text x="${x}" y="${base+20}" text-anchor="middle">${v<0?"−":""}${nf(Math.abs(v),dd)}</text>`}
+ const tx=fx(sr0);g+=`<path d="M${tx-6},${base}L${tx+6},${base}L${tx},${base-9}Z" fill="var(--ink)"/>`;
+ const ox=fx(st.s),an=ox>W-110?"end":ox<110?"start":"middle";
+ g+=`<line x1="${ox}" x2="${ox}" y1="${m.t-4}" y2="${base}" stroke="var(--ink)" stroke-width="2"/><text class="k" x="${ox}" y="${m.t-12}" text-anchor="${an}">${L("my best book","mon meilleur livre")} ${nf(st.s)}</text>`;
+ g+=`<text x="${(m.l+W-m.r)/2}" y="${H-4}" text-anchor="middle">${L("Annualised Sharpe ratio","Ratio de Sharpe annualisé")}</text>`;
+ sN.innerHTML=g};
+
+const cum=a=>{let s=0;return a.map(v=>s+=v)};
+const VM=cum([21.34,-25.16,28.67,-11.83,51.1,-41.09,-13.4,-113.28,163.42,-20.07,48.99,-21.32,-47.89,1.47,93.49,-58.93,-27.08,-66.94,-59.37,128.77,-69.31,65.59,-30.05,-138.29,33.19,178.7,18.17,12.93,-34.02,11.5,12.92,-77.12,-60.85,281.45,37.81,96.31,12.57,14.15,150.28,-42.98,-104.01,23.06,-68.64,101.12,-2.52,71.68,-34.91,-9.73,128.32,46.88,-19.84,-28.55,-14.84,124.95,-50.26,-7.4,224.97,-32.83,6.45,-14.43,33.48,100.82,-4.58,53.65,34.86,-38.79,-8.35,36.5,-0.67,1.04,-37.32,13.58,-162.92,62.14,25.9,80.23,61.26,7.6,28.85,72.3,38.08,32.44,23.85,18.62,37.03,-32.39,118.16,9.66,40.02,83.5,-22.25,54.22,-23.33,-1.43,-51.87,43.15,140.61,2.42,-67.48,-30.69,-10.98,-30.98,112.91,-93.37,116.23,93.11,-64.43,182.59,-34.27,83.26,17.91,125.58,-36.9,-48.9,-80.14,-78.02,-148.79,49.75,-87.79,-2.95,-126.56,-8.23,41.75,-12.98,-114.4,48.89,22.46,-26.35,-80.69,53.22,84.2]),QQ=cum([20.75,31.02,38.61,-69.69,18.26,-271.58,-69.43,-135.72,95.68,-145.92,64.65,-26.02,-118.92,-32.84,42.53,-97.11,29.19,185.42,-36.86,77.24,-38.67,19.86,26.09,-55.49,77.32,90.07,138.75,87.69,-134.41,-39.26,155.6,-8.26,-102.47,256.33,80.11,70.22,2.85,-15.11,81.81,-73.97,-32.87,143.01,-79.43,41.35,15.82,-58.74,-73.14,-32.26,63.69,123.83,-8.16,-7.84,-99.25,56.47,11.36,0.06,99.14,54.3,-16.51,-51.27,77.88,-99.31,95.34,17.08,13.72,37.45,97.36,-71.83,-109.62,-24.05,-76.51,102.79,10.05,46.46,-13.82,91.2,56.46,-33.16,23.73,50.69,-44.94,78.42,-1.01,-9.38,49.21,-16,31.66,73.27,119.86,110.24,45.45,160.07,19.07,19.81,-8.78,-95.58,44.45,-18.67,-18.83,129.05,24.29,-2.14,134.49,-69.18,59.09,76.53,20.68,101.69,-9.05,15.86,33.23,155.8,-48.28,-49.74,-93.07,-30.01,-183.82,180.89,9.35,-26.8,-197.86,25.38,127.81,-24.15,-24.65,151.14,-32.32,2.59,67.93,112.64,-7.82]),RF=cum([-86.28,11.71,142.89,26.65,17.81,45.06,16.72,-25.51,-10.5,-85.91,19.63,-21.97,11.05,63.95,-17.44,-35.55,-4.36,-40.01,4.45,-31.77,2.67,-1.07,44.26,-65.98,42.88,-97.15,-120.44,-81.09,45.03,-31.61,55.27,31.88,-21.15,-200.62,19.17,-207.73,114.13,33.6,-23.21,3.21,3.2,-12.8,-22.65,-51.96,-21.85,-17.41,15.39,-4.88,8.64,-70.16,136.43,15.38,-39.98,-43.92,16.31,48.41,-118.83,-56,-25.94,-1.21,-33.97,2.17,-7.97,23.09,-17.97,-14.8,27.11,18.4,-90.39,37.27,-42.33,3.33,-74.49,7.21,-5.76,-117.66,6.59,-59.5,99.92,-46.41,-64.3,62.17,-9.78,-70.66,51.93,11.92,4.14,16.18,-33.74,56.32,4.83,-43.13,-55.27,-28.48,19.76,15.33,3.68,16.82,-10.1,-73.78,-0.62,11.03,-41.78,-2.46,-31.02,-26.32,-6.6,-33.78,-18.68,-15.33,-27.39,75.19,0.53,-2.77,-19.12,-8.29,-5.19,-33.76,-17.19,-24.72,-11.69,-14.59,-31.33,31.84,10.74,-47.16,-21.49,-17.8,-23.93,-15.25,-49.04]);
+const drawE=()=>{const W=sE.clientWidth,H=sE.clientHeight;if(!W||!H)return;
+ const m={l:58,r:70,t:24,b:30},n=VM.length;
+ const all=[...VM,...QQ,...RF],lo=Math.min(0,...all),hi=Math.max(...all);
+ const stp=hi-lo>3000?1000:500,y0=Math.floor(lo/stp)*stp,y1=Math.ceil(hi/stp)*stp;
+ const fx=i=>m.l+i/(n-1)*(W-m.l-m.r),fy=v=>m.t+(y1-v)/(y1-y0)*(H-m.t-m.b);
+ let g="";
+ for(let v=y0;v<=y1;v+=stp)g+=`<line x1="${m.l}" x2="${W-m.r}" y1="${fy(v)}" y2="${fy(v)}" stroke="${v===0?"var(--faint)":"var(--rule)"}"/><text x="${m.l-8}" y="${fy(v)+4}" text-anchor="end">${usd(v)}</text>`;
+ for(let y=2016;y<=2026;y+=W<560?2:1){const x=fx((y-2016)*12);g+=`<text x="${x}" y="${H-8}" text-anchor="middle">${W<560?"’"+String(y).slice(2):y}</text>`}
+ const sx=fx(65);g+=`<line x1="${sx}" x2="${sx}" y1="${m.t-6}" y2="${H-m.b}" stroke="var(--faint)" stroke-dasharray="3 4"/><text x="${sx-8}" y="${m.t-10}" text-anchor="end">${L("first half","1re moitié")}</text><text x="${sx+8}" y="${m.t-10}">${L("second half","2e moitié")}</text>`;
+ const S=[[RF,"var(--luck)",1.5],[QQ,"var(--mute)",1.5],[VM,"var(--edge)",2.6]];
+ for(const [a,c,w] of S)g+=`<path d="${a.map((v,i)=>(i?"L":"M")+fx(i).toFixed(1)+","+fy(v).toFixed(1)).join("")}" fill="none" stroke="${c}" stroke-width="${w}" stroke-linejoin="round"/>`;
+ const ends=S.map(([a,c])=>({y:fy(a[n-1]),v:a[n-1],c})).sort((p,q)=>p.y-q.y);
+ for(let i=1;i<ends.length;i++)if(ends[i].y-ends[i-1].y<16)ends[i].y=ends[i-1].y+16;
+ for(const e of ends)g+=`<text x="${W-m.r+8}" y="${e.y+4}" style="fill:${e.c}">${usd(e.v)}</text>`;
+ sE.innerHTML=g};
+
+const TR=[["T1","SPY above its 200-day average","SPY au-dessus de sa moyenne 200 j",.91,.40,"w"],["T2","6 assets above their 210-day average (Faber)","6 actifs au-dessus de leur moyenne 210 j (Faber)",.74,.22,"x"],["T3","12-1 month momentum, 9 assets","Momentum 12-1 mois, 9 actifs",.57,.38,"w"],["T4","Donchian 100/50 days, 9 assets","Donchian 100/50 j, 9 actifs",.82,.11,"x"],["T5","QQQ 50/200-day crossover","QQQ croisement 50/200 j",1.02,.55,"r"],["M1","Dual momentum SPY/EFA/bonds","Double momentum SPY/EFA/obligations",.65,.23,"x"],["M2","Top 3 sectors, 6-month rotation","Rotation des 3 meilleurs secteurs (6 mois)",.57,.14,"x"],["M3","Top 3 assets, 3-month rotation","Rotation des 3 meilleurs actifs (3 mois)",.93,.10,"x"],["R1","RSI(2) below 10 on SPY","RSI(2) sous 10 sur SPY",.30,.48,"x"],["R2","IBS below 0.2 on SPY","IBS sous 0,2 sur SPY",.89,.17,"x"],["R3","Turn of the month on SPY","Fin et début de mois sur SPY",.52,.22,"x"],["V1","SPY at 10% target volatility","SPY à volatilité cible de 10 %",1.10,.45,"w"],["V2","Risk parity, 6 assets","Parité de risque, 6 actifs",.94,.26,"x"],["K1","BTC above its 100-day average","BTC au-dessus de sa moyenne 100 j",1.53,.51,"r"],["K2","BTC+ETH above their 50-day average","BTC+ETH au-dessus de leur moyenne 50 j",2.07,.53,"r"],["K3","BTC 90-day momentum, weekly","BTC momentum 90 j, hebdo",1.32,.17,"x"],["K4","BTC Donchian 55/20 days","BTC Donchian 55/20 j",1.46,.33,"w"],["SPY","Buy and hold SPY","SPY acheté-gardé",.94,.46,"b"],["60/40","60% SPY / 40% IEF","60 % SPY / 40 % IEF",1.08,.23,"b"],["EW9","9 assets, equal weight","9 actifs à poids égaux",.92,.20,"b"],["BTC","Buy and hold BTC","BTC acheté-gardé",1.34,.32,"b"],["B+E","BTC+ETH 50/50","BTC+ETH 50/50",1.66,.18,"b"]];
+const VD={r:["kept","retenue"],w:["on watch","à surveiller"],x:["rejected","rejetée"],b:["benchmark","référence"]};
+const drawS=()=>{const W=sS.clientWidth,H=sS.clientHeight;if(!W||!H)return;
+ const m={l:40,r:14,t:30,b:44},X=2.2,Y=.7;
+ const fx=v=>m.l+v/X*(W-m.l-m.r),fy=v=>H-m.b-v/Y*(H-m.t-m.b);
+ let g=`<rect x="${fx(.5)}" y="${fy(Y)}" width="${fx(X)-fx(.5)}" height="${fy(.5)-fy(Y)}" fill="var(--edge)" opacity=".09"/>`;
+ for(const v of [0,.2,.4,.6])g+=`<line x1="${m.l}" x2="${W-m.r}" y1="${fy(v)}" y2="${fy(v)}" stroke="${v?"var(--rule)":"var(--faint)"}"/><text x="${m.l-8}" y="${fy(v)+4}" text-anchor="end">${nf(v,1)}</text>`;
+ for(const v of [0,.5,1,1.5,2])g+=`<text x="${fx(v)}" y="${H-m.b+18}" text-anchor="middle">${nf(v,1)}</text>`;
+ g+=`<line x1="${fx(.5)}" x2="${fx(.5)}" y1="${fy(Y)}" y2="${fy(0)}" stroke="var(--faint)" stroke-dasharray="3 4"/><line x1="${fx(0)}" x2="${fx(X)}" y1="${fy(.5)}" y2="${fy(.5)}" stroke="var(--faint)" stroke-dasharray="3 4"/>`;
+ g+=`<line x1="${fx(0)}" x2="${fx(Y)}" y1="${fy(0)}" y2="${fy(Y)}" stroke="var(--faint)"/><text x="${fx(.6)-6}" y="${fy(.6)-6}" text-anchor="end">${L("no decay","sans dégradation")}</text>`;
+ g+=`<text x="${fx(X)}" y="${fy(Y)+16}" text-anchor="end">${L("kept zone","zone retenue")}</text>`;
+ for(const [c,en,fr,a,b,k] of TR){const x=fx(a),y=fy(b),t=`<title>${c} ${L(en,fr)}: ${nf(a)} → ${nf(b)}</title>`;
+  g+=k==="b"?`<circle cx="${x}" cy="${y}" r="5" fill="var(--bg)" stroke="var(--luck)" stroke-width="2">${t}</circle>`:`<circle cx="${x}" cy="${y}" r="${k==="r"?6:5}" fill="${k==="r"?"var(--ink)":"var(--edge)"}">${t}</circle>`;
+  if(k==="r")g+=`<text class="k" x="${x+9}" y="${y-8}">${c}</text>`;
+  if(c==="SPY")g+=`<text x="${x-9}" y="${y+4}" text-anchor="end">SPY</text>`}
+ g+=`<text x="${m.l}" y="${m.t-14}">${L("Sharpe, final test 2022 → Nov 2026","Sharpe, test final 2022 → nov. 2026")}</text><text x="${W-m.r}" y="${H-4}" text-anchor="end">${L("Sharpe, study 2017–2021","Sharpe, étude 2017–2021")}</text>`;
+ sS.innerHTML=g};
+
+const BK=[["Noise band · QQQ","Zone de bruit · QQQ",.54,[1,1,1,1,0],7.3,18.3],["Noise band ×1.5","Zone de bruit ×1,5",.5365,[1,1,1,1,1],6.2,12.9],["Noise band, 60-min checks","Zone de bruit, contrôle 60 min",.16,[1,0,1,0,0],2.0,10.8],["Noise band + VWAP entry","Zone de bruit + entrée VWAP",.13,[1,0,0,0,0],1.6,13.6],["Noise band, band-only stop","Zone de bruit, stop sur la bande seule",.11,[1,0,0,0,0],1.3,13.4],["Noise band, published rule","Zone de bruit, règle publiée",.02,[1,0,0,0,0],.2,13.0],["Noise band, 30-day memory","Zone de bruit, mémoire 30 j",0,[1,0,0,0,0],0,11.7],["Noise band, leverage ≤ 2","Zone de bruit, levier ≤ 2",-.11,[0,0,0,0,0],-1.0,9.7],["Noise band, long only","Zone de bruit, achats seuls",-.37,[0,0,0,0,0],-1.2,3.2],["Noise band · IWM","Zone de bruit · IWM",-.78,[0,0,0,0,0],-8.3,2.5],["Last half-hour, day signal · QQQ","Dernière demi-heure, signal du jour · QQQ",-2.31,[0,0,0,0,0],-8.3,-.7],["Noise band, 15-min checks","Zone de bruit, contrôle 15 min",-1.40,[0,0,0,0,0],-8.4,10.8],["Last half-hour, day signal","Dernière demi-heure, signal du jour",-2.43,[0,0,0,0,0],-8.6,-2.0],["VWAP trend","Tendance VWAP",-1.92,[0,0,0,0,0],-8.7,7.8],["Last half-hour, first-30-min signal","Dernière demi-heure, signal des 30 premières min",-2.77,[0,0,0,0,0],-8.7,-4.6],["VWAP trend · QQQ","Tendance VWAP · QQQ",-1.97,[0,0,0,0,0],-9.0,18.7]];
+const REFB=["Benchmark: SPY open to close","Référence : SPY ouverture → clôture",-.74,null,-6.1,3.8];
+const WF=[["Gross edge","Gain brut",0,1.14,"var(--edge)","+"],["Commissions","Commissions",1.14,.43,"var(--luck)","−"],["Fees on sales","Taxes sur ventes",.43,.29,"var(--luck)","−"],["Slippage","Glissement",.29,.01,"var(--luck)","−"],["Net","Net",0,.02,"var(--ink)","+"]];
+const LIM=[["Many trials","Beaucoup d’essais","Counted them and deflated the Sharpe (top of the page).","Comptés, et Sharpe déflaté (en haut de page).","16 is a floor; correlated books also mean fewer independent trials.","16 est un minimum ; des livres corrélés font aussi moins d’essais indépendants."],["Tuned settings","Réglages ajustés","Settings and the five tests fixed before any result; one change per variant.","Réglages et cinq tests fixés avant tout résultat ; un seul changement par variante.","The variants are themselves a search.","Les variantes sont elles-mêmes une recherche."],["Out of sample","Hors échantillon","Slow strategies: study 2017–2021, test 2022 on. Intraday: two halves.","Stratégies lentes : étude 2017–2021, test dès 2022. Intraday : deux moitiés.","Intraday halves are not a true holdout: the whole period was seen.","Les moitiés intraday ne sont pas un vrai hors échantillon : toute la période a été vue."],["Costs","Coûts","IBKR minimums, fees on sales, slippage; 4 scenarios; slippage ×3 test.","Minimums IBKR, taxes sur ventes, glissement ; 4 scénarios ; test glissement ×3.","Real fills in fast markets can be worse than bar prices.","Les vraies exécutions sur marché rapide peuvent être pires que les prix des barres."],["Look-ahead","Look-ahead","The backtest runs the live bot’s code, which cannot see the future.","Le backtest fait tourner le code du bot en direct, qui ne voit pas le futur.","That guards the signal logic, not the data preparation.","Cela protège la logique du signal, pas la préparation des données."],["Survivorship","Survivorship","SPY, QQQ and IWM traded through the whole period.","SPY, QQQ et IWM ont coté sur toute la période.","It would matter for single stocks or dead coins.","Ce serait un problème pour des actions seules ou des cryptos disparues."]];
+
+const render=()=>{
+ $("wf").innerHTML=WF.map(([en,fr,a,b,c,s])=>{const l=Math.min(a,b)/1.2*100,w=Math.abs(a-b)/1.2*100;return`<span>${L(en,fr)}</span><span class="trk"><i style="left:${l}%;width:${Math.max(w,.6)}%;background:${c}"></i></span><span class="v">${s}${nf(Math.abs(a-b))}</span>`}).join("");
+ const lo=-10,hi=20,P=v=>(v-lo)/(hi-lo)*100;
+ const rows=[...BK.map(b=>[b[0],b[1],b[4],b[5],b[3]&&b[3].every(x=>x)]),[REFB[0],REFB[1],REFB[4],REFB[5],false]];
+ $("db").innerHTML=rows.map(([en,fr,r,s,h])=>`<div${h?' class="hi"':""}><span class="nm">${L(en,fr)}</span><span class="trk" style="--z:${P(0)}%"><span class="ln" style="left:${P(Math.min(r,s))}%;width:${Math.abs(P(r)-P(s))}%"></span><span class="p s" style="left:${P(s)}%"></span><span class="p r" style="left:${P(r)}%"></span></span><span class="v">${sg(r)}%</span></div>`).join("")+`<div><span></span><span class="ax">${[-10,0,10,20].map(v=>`<span style="left:${P(v)}%">${sg(v,0)}%</span>`).join("")}</span><span></span></div>`;
+ $("mx").innerHTML=`<thead><tr><th>${L("Book","Livre")}</th>${[1,2,3,4,5].map(i=>`<th class="c">T${i}</th>`).join("")}<th class="n">${L("Score","Score")}</th><th class="n">Sharpe</th></tr></thead><tbody>`+BK.map(b=>{const n=b[3].reduce((x,y)=>x+y,0);return`<tr${n===5?' class="hi"':""}><td>${L(b[0],b[1])}</td>${b[3].map(t=>`<td class="c"><span class="dot${t?" on":""}" aria-label="${t?L("pass","réussi"):L("fail","échoué")}"></span></td>`).join("")}<td class="n">${n}/5</td><td class="n">${b[2]<0?"−":""}${nf(Math.abs(b[2]))}</td></tr>`}).join("")+"</tbody>";
+ $("tt").innerHTML=`<thead><tr><th></th><th>${L("Rule","Règle")}</th><th class="n">${L("Study","Étude")}</th><th class="n">Test</th><th>${L("Verdict","Verdict")}</th></tr></thead><tbody>`+TR.map(([c,en,fr,a,b,k])=>`<tr${k==="r"?' class="hi"':""}><td>${c}</td><td>${L(en,fr)}</td><td class="n">${nf(a)}</td><td class="n">${nf(b)}</td><td>${L(...VD[k])}</td></tr>`).join("")+"</tbody>";
+ $("yrs").innerHTML=[3,-9,22,5,16,8,12,11,15,-10,-5].map((v,i)=>`<div><div class="yb"><i class="${v<0?"neg":""}" style="height:${Math.abs(v)/24*50}%;${v<0?"top":"bottom"}:50%"></i></div><div class="num">${sg(v,0)}</div><div class="yy">’${16+i}</div></div>`).join("");
+ $("lim").innerHTML=`<div class="hd"><span>${L("Risk","Risque")}</span><span>${L("What I did","Ce que j’ai fait")}</span><span>${L("What remains","Ce qui reste")}</span></div>`+LIM.map(r=>`<div><b>${L(r[0],r[1])}</b><span><span class="ml">${L("What I did","Ce que j’ai fait")}</span>${L(r[2],r[3])}</span><span class="rest"><span class="ml">${L("What remains","Ce qui reste")}</span>${L(r[4],r[5])}</span></div>`).join("");
+ readouts();drawN();drawE();drawS()};
+
+const setLang=l=>{lang=l;root.lang=l;$("lEN").setAttribute("aria-pressed",l==="en");$("lFR").setAttribute("aria-pressed",l==="fr");try{localStorage.setItem("lang",l)}catch(e){}render()};
+$("lEN").addEventListener("click",()=>setLang("en"));
+$("lFR").addEventListener("click",()=>setLang("fr"));
+
+let raf=0;const upd=(re)=>{cancelAnimationFrame(raf);raf=requestAnimationFrame(()=>{if(re)simulate();readouts();drawN()})};
+$("iN").addEventListener("input",e=>{st.n=+e.target.value;upd(true)});
+$("iT").addEventListener("input",e=>{st.t=+e.target.value;upd(false)});
+$("iS").addEventListener("input",e=>{st.s=+e.target.value;upd(false)});
+$("bRun").addEventListener("click",()=>{st.seed=st.seed*16807%2147483647;upd(true)});
+$("bReset").addEventListener("click",()=>{Object.assign(st,{n:16,t:10.79,s:.5365});$("iN").value=16;$("iT").value=10.79;$("iS").value=.5365;upd(true)});
+
+const roN=new ResizeObserver(drawN),roE=new ResizeObserver(drawE),roS=new ResizeObserver(drawS);
+roN.observe(sN);roE.observe(sE);roS.observe(sS);
+simulate();setLang(lang);
+}
+</script>
+</body>
+</html>
